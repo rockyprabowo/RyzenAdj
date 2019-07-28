@@ -1,2 +1,2 @@
-%~dp0\ryzenadj.exe --stapm-limit=40000 --fast-limit=45000 --slow-limit=45000 --tctl-temp=90
+%~dp0\ryzenadj.exe --stapm-time=3600 --stapm-limit=27000 --fast-limit=30000 --slow-limit=27000 --tctl-temp=90 --vrmmax-current=45000 --persistent-delay=500
 pause

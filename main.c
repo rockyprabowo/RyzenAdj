@@ -3,7 +3,9 @@
 /* Ryzen NB SMU Service Request Tool */
 
 #include <string.h>
+#include <signal.h>
 #include "lib/ryzenadj.h"
+#include "misc.h"
 #include "argparse.h"
 
 #define STRINGIFY2(X) #X
@@ -13,7 +15,8 @@
 do{ \
 	while(ARG != 0){    \
 		if(!set_##ARG(ry, ARG)){   \
-			printf("Sucessfully set " STRINGIFY(ARG) " to %x\n", ARG);    \
+			if (reapply_every > 0 && initial_info_printed) break; \
+			printf(STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
 			break;  \
 		} else {    \
 			printf("Failed to set" STRINGIFY(ARG) " \n");   \
@@ -23,11 +26,26 @@ do{ \
 	} \
 }while(0);
 
+volatile bool exiting = false;
+
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
 	"ryzenadj [options]",
 	NULL,
 };
+
+void signal_handler(int signal) {
+	switch(signal) {
+		case SIGABRT:
+		case SIGINT:
+			printf("Exit signal caught. Stopping...\n");
+			exiting = true;
+			break;
+		default:
+			printf("FIXME: Implement a proper signal handler pls.");
+			break;
+	}
+}
 
 int main(int argc, const char **argv)
 {
@@ -38,6 +56,9 @@ int main(int argc, const char **argv)
 	uint32_t vrm_current = 0, vrmsoc_current = 0, vrmmax_current = 0, vrmsocmax_current = 0, psi0_current = 0, psi0soc_current = 0;
 	uint32_t max_socclk_freq = 0, min_socclk_freq = 0, max_fclk_freq = 0, min_fclk_freq = 0, max_vcn = 0, min_vcn = 0, max_lclk = 0, min_lclk = 0;
 	uint32_t max_gfxclk_freq = 0, min_gfxclk_freq = 0;
+	uint32_t reapply_every = 0, error_count = 0;
+	bool initial_info_printed = false;
+	char last_time[16] = "";
 
 	struct argparse_option options[] = {
 		OPT_HELP(),
@@ -66,6 +87,7 @@ int main(int argc, const char **argv)
 		OPT_U32('v', "min-lclk", &min_lclk, "Minimum Data Launch Clock (Value)"),
 		OPT_U32('w', "max-gfxclk", &max_gfxclk_freq, "Maximum GFX Clock (Value)"),
 		OPT_U32('x', "min-gfxclk", &min_gfxclk_freq, "Minimum GFX Clock (Value)"),
+		OPT_U32('z', "reapply-every", &reapply_every, "Reapply configuration with delay (in milisecond)"),
 		OPT_GROUP("P-State Functions"),
 		OPT_END(),
 	};
@@ -74,7 +96,17 @@ int main(int argc, const char **argv)
 	struct argparse argparse;
 	argparse_init(&argparse, options, usage, 0);
 	argparse_describe(&argparse, "\n Ryzen Power Management adjust tool.", "\nWARNING: Use at your own risk!\nBy Jiaxun Yang <jiaxun.yang@flygoat.com>, Under LGPL.\nVersion: v0." STRINGIFY(RYZENADJ_VER));
-	argc = argparse_parse(&argparse, argc, argv);
+	// argc = argparse_parse(&argparse, argc, argv);
+	argparse_parse(&argparse, argc, argv);
+
+	if (argc == 1) {
+		printf("No parameter was set.\n");
+		argparse_usage(&argparse);
+		exit(-1);
+	}
+
+	signal(SIGABRT, signal_handler);
+	signal(SIGINT, signal_handler);
 
 	ry = init_ryzenadj();
 	if(!ry){
@@ -82,28 +114,47 @@ int main(int argc, const char **argv)
 		return -1;
 	}
 
-	_do_adjust(stapm_limit);
-	_do_adjust(fast_limit);
-	_do_adjust(slow_limit);
-	_do_adjust(slow_time);
-	_do_adjust(stapm_time);
-	_do_adjust(tctl_temp);
-	_do_adjust(vrm_current);
-	_do_adjust(vrmsoc_current);
-	_do_adjust(vrmmax_current);
-	_do_adjust(vrmsocmax_current);
-	_do_adjust(psi0_current);
-	_do_adjust(psi0soc_current);
-	_do_adjust(max_socclk_freq);
-	_do_adjust(min_socclk_freq);
-	_do_adjust(max_fclk_freq);
-	_do_adjust(min_fclk_freq);
-	_do_adjust(max_vcn);
-	_do_adjust(min_vcn);
-	_do_adjust(max_lclk);
-	_do_adjust(min_lclk);
-	_do_adjust(max_gfxclk_freq);
-	_do_adjust(min_gfxclk_freq);
+	if (reapply_every > 0) {
+		printf("Reapply configuration after %d ms delay\n", reapply_every);
+	}
+	do {
+		_do_adjust(stapm_limit);
+		_do_adjust(fast_limit);
+		_do_adjust(slow_limit);
+		_do_adjust(slow_time);
+		_do_adjust(stapm_time);
+		_do_adjust(tctl_temp);
+		_do_adjust(vrm_current);
+		_do_adjust(vrmsoc_current);
+		_do_adjust(vrmmax_current);
+		_do_adjust(vrmsocmax_current);
+		_do_adjust(psi0_current);
+		_do_adjust(psi0soc_current);
+		_do_adjust(max_socclk_freq);
+		_do_adjust(min_socclk_freq);
+		_do_adjust(max_fclk_freq);
+		_do_adjust(min_fclk_freq);
+		_do_adjust(max_vcn);
+		_do_adjust(min_vcn);
+		_do_adjust(max_lclk);
+		_do_adjust(min_lclk);
+		_do_adjust(max_gfxclk_freq);
+		_do_adjust(min_gfxclk_freq);
+		initial_info_printed = true;
+		if (reapply_every == 0) {
+			if (err != 0) printf("Got an error! Exiting...");
+			exiting = true;
+		}
+		else {
+			if (err != 0) {
+				error_count++;
+				wait_ms(reapply_every);
+			}
+			current_time(last_time, 15);
+			printf("\33[2K\rSettings applied at %s (error count: %d)\r", last_time, error_count);
+		}
+		wait_ms(reapply_every);
+	} while (!exiting);
 	cleanup_ryzenadj(ry);
 
 	return err;
