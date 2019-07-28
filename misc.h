@@ -1,12 +1,9 @@
 #if defined(WIN32)
 #include <windows.h>
-#include <time.h> 
-#elif defined(_POSIX_C_SOURCE)
-#if _POSIX_C_SOURCE >= 199309L
-#include <time.h> 
-#else 
+#include <time.h>
+#elif defined(__linux__)
+#include <time.h>
 #include <unistd.h>
-#endif
 #endif
 
 void wait_ms(int ms);

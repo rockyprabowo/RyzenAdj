@@ -38,11 +38,11 @@ void signal_handler(int signal) {
 	switch(signal) {
 		case SIGABRT:
 		case SIGINT:
-			printf("Exit signal caught. Stopping...\n");
+			printf("\n\nExit signal caught. Stopping...\n");
 			exiting = true;
 			break;
 		default:
-			printf("FIXME: Implement a proper signal handler pls.");
+			printf("\n\nFIXME: Implement a proper signal handler pls.");
 			break;
 	}
 }
@@ -151,7 +151,12 @@ int main(int argc, const char **argv)
 				wait_ms(reapply_every);
 			}
 			current_time(last_time, 15);
+			#ifdef WIN32
 			printf("\33[2K\rSettings applied at %s (error count: %d)\r", last_time, error_count);
+			#elif defined(__linux__)
+			printf("\rSettings applied at %s (error count: %d)", last_time, error_count);
+			#endif
+			fflush(stdout);
 		}
 		wait_ms(reapply_every);
 	} while (!exiting);
