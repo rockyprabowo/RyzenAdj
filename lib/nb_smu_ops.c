@@ -41,11 +41,11 @@ u32 smu_service_req(smu_t smu ,u32 id ,smu_service_args_t *args)
 }
 
 smu_t get_smu(nb_t nb, int smu_type) {
-	smu_t smu;
+	smu_t smu = (smu_t)malloc(sizeof *smu);
 	uint32_t rep; /* REP of test message */
 	smu_service_args_t arg = {0, 0, 0, 0, 0, 0}; /* Test message shuld have no arguments */
 
-	smu = (smu_t)malloc((sizeof(smu_t)));
+	if (smu == NULL) return NULL;
 	smu->nb = nb;
 	/* Fill SMU information */
 	switch(smu_type){

@@ -6,10 +6,9 @@
 
 EXP ryzen_access CALL init_ryzenadj(){
 	smu_service_args_t args = {0, 0, 0, 0, 0, 0};
-	ryzen_access ry;
+	ryzen_access ry =  (ryzen_access)malloc(sizeof *ry);
 
-	ry = (ryzen_access)malloc((sizeof(*ry)));
-
+	if (ry == NULL) return NULL;
 	ry->pci_obj = init_pci_obj();
 	if(!ry->pci_obj){
 		printf("Unable to get PCI Obj\n");
