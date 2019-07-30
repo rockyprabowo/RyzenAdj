@@ -38,11 +38,11 @@ void signal_handler(int signal) {
 	switch(signal) {
 		case SIGABRT:
 		case SIGINT:
-			printf("\n\nExit signal caught. Stopping...\n");
+			puts("\nExit signal caught.");
 			exiting = true;
 			break;
 		default:
-			printf("\n\nFIXME: Implement a proper signal handler pls.");
+			puts("\nFIXME: Implement a proper signal handler pls.");
 			break;
 	}
 }
@@ -110,7 +110,7 @@ int main(int argc, const char **argv)
 
 	ry = init_ryzenadj();
 	if(!ry){
-		printf("Unable to init ryzenadj, check permission\n");
+		puts("Unable to init ryzenadj, check permission");
 		return -1;
 	}
 
@@ -141,26 +141,21 @@ int main(int argc, const char **argv)
 		_do_adjust(max_gfxclk_freq);
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
-		if (reapply_every == 0) {
-			if (err != 0) printf("Got an error! Exiting...");
-			exiting = true;
-		}
-		else {
-			if (err != 0) {
-				error_count++;
-				wait_ms(reapply_every);
-			}
+		if(reapply_every == 0) break;
+		if (err != 0) {
+			error_count++;
+			wait_ms(reapply_every);
+		} else {
 			current_time(last_time, 15);
-			#ifdef WIN32
-			printf("\33[2K\rSettings applied at %s (error count: %d)\r", last_time, error_count);
-			#elif defined(__linux__)
-			printf("\rSettings applied at %s (error count: %d)", last_time, error_count);
-			#endif
+			printf("\33[2K\rSettings applied at %s (error count: %d)", last_time, error_count);
 			fflush(stdout);
+			wait_ms(reapply_every);
 		}
-		wait_ms(reapply_every);
 	} while (!exiting);
+
+	puts("Cleaning up.");
 	cleanup_ryzenadj(ry);
+	puts("Bye.");
 
 	return err;
 }
