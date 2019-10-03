@@ -1,5 +1,15 @@
 #include "misc.h"
 
+void configure_console() {
+#if defined WIN32
+	HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD dwMode = 0;
+	GetConsoleMode(hOut, &dwMode);
+	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	SetConsoleMode(hOut, dwMode);
+#endif
+}
+
 void wait_ms(int ms)
 {
 #if defined WIN32

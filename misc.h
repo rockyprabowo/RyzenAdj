@@ -6,5 +6,6 @@
 #include <unistd.h>
 #endif
 
+void configure_console();
 void wait_ms(int ms);
 void current_time(char* out, unsigned int outSize);
