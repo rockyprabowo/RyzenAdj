@@ -100,7 +100,7 @@ int main(int argc, const char **argv)
 
 	struct argparse argparse;
 	argparse_init(&argparse, options, usage, 0);
-	argparse_describe(&argparse, "\n Ryzen Power Management adjust tool.", "\nWARNING: Use at your own risk!\nBy Jiaxun Yang <jiaxun.yang@flygoat.com>, Under LGPL.\nVersion: v0." STRINGIFY(RYZENADJ_VER));
+	argparse_describe(&argparse, "\nRyzen Power Management adjust tool.", "\nWARNING: Use at your own risk!\nBy Jiaxun Yang <jiaxun.yang@flygoat.com>, Under LGPL.\nVersion: v0." STRINGIFY(RYZENADJ_VER));
 	// argc = argparse_parse(&argparse, argc, argv);
 	argparse_parse(&argparse, argc, argv);
 
@@ -109,6 +109,9 @@ int main(int argc, const char **argv)
 		argparse_usage(&argparse);
 		exit(-1);
 	}
+
+	puts(argparse.description);
+	puts(argparse.epilog);
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
@@ -123,7 +126,7 @@ int main(int argc, const char **argv)
 	if (reapply_every > 0) {
 		if (reapply_every < 100)
 			puts("WARNING: Delay below 100 ms is not recommended!");
-		printf("Reapply configuration after %d ms delay\n", reapply_every);
+		printf("\nReapply configuration after %d ms of delay\n", reapply_every);
 		puts("Press Ctrl+C to exit.");
 		puts("");
 	}
