@@ -121,6 +121,8 @@ int main(int argc, const char **argv)
 	}
 
 	if (reapply_every > 0) {
+		if (reapply_every < 100)
+			puts("WARNING: Delay below 100 ms is not recommended!");
 		printf("Reapply configuration after %d ms delay\n", reapply_every);
 		puts("Press Ctrl+C to exit.");
 		puts("");
@@ -151,7 +153,11 @@ int main(int argc, const char **argv)
 		initial_info_printed = true;
 		if(reapply_every == 0) break;
 		current_time(last_time, 15);
-		printf("\033[2K\rSettings applied at %s (error count: %d)", last_time, err != 0 ? ++error_count : error_count);
+		printf("\033[2K\r[Delay: %d ms] Settings applied at %s (error count: %d)",
+			reapply_every,
+			last_time,
+			err != 0 ? ++error_count : error_count
+			);
 		fflush(stdout);
 		wait_ms(reapply_every);
 	} while (true);
