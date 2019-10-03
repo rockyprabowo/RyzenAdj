@@ -26,8 +26,7 @@ do{ \
 	} \
 }while(0);
 
-volatile bool exiting = false;
-ryzen_access* ryzen_access_ptr;
+ryzen_access* global_ryzen_access_ptr;
 
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
@@ -40,18 +39,17 @@ void signal_handler(int signal) {
 		case SIGABRT:
 		case SIGINT:
 			puts("\nExit signal caught.");
-			exiting = true;
 			break;
 		default:
 			puts("\nFIXME: Implement a proper signal handler.");
 			break;
 	}
-	cleanup_ryzenadj(*ryzen_access_ptr);
+	cleanup_ryzenadj(*global_ryzen_access_ptr);
 	exit(0);
 }
 
-void register_ry(ryzen_access* _ry) {
-	ryzen_access_ptr = _ry;
+void register_ryzen_access(ryzen_access* _ry) {
+	global_ryzen_access_ptr = _ry;
 }
 
 int main(int argc, const char **argv)
@@ -116,7 +114,7 @@ int main(int argc, const char **argv)
 	signal(SIGINT, signal_handler);
 
 	ry = init_ryzenadj();
-	register_ry(&ry);
+	register_ryzen_access(&ry);
 	if(!ry){
 		puts("Unable to init ryzenadj, check permission");
 		return -1;
@@ -152,13 +150,9 @@ int main(int argc, const char **argv)
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
 		if(reapply_every == 0) break;
-		if (err != 0) {
-			error_count++;
-		} else {
-			current_time(last_time, 15);
-			printf("\33[2K\rSettings applied at %s (error count: %d)\r", last_time, error_count);
-			fflush(stdout);
-		}
+		current_time(last_time, 15);
+		printf("\033[2K\rSettings applied at %s (error count: %d)", last_time, err != 0 ? ++error_count : error_count);
+		fflush(stdout);
 		wait_ms(reapply_every);
 	} while (true);
 
