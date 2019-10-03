@@ -27,6 +27,7 @@ do{ \
 }while(0);
 
 volatile bool exiting = false;
+ryzen_access* ryzen_access_ptr;
 
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
@@ -42,9 +43,15 @@ void signal_handler(int signal) {
 			exiting = true;
 			break;
 		default:
-			puts("\nFIXME: Implement a proper signal handler pls.");
+			puts("\nFIXME: Implement a proper signal handler.");
 			break;
 	}
+	cleanup_ryzenadj(*ryzen_access_ptr);
+	exit(0);
+}
+
+void register_ry(ryzen_access* _ry) {
+	ryzen_access_ptr = _ry;
 }
 
 int main(int argc, const char **argv)
@@ -109,6 +116,7 @@ int main(int argc, const char **argv)
 	signal(SIGINT, signal_handler);
 
 	ry = init_ryzenadj();
+	register_ry(&ry);
 	if(!ry){
 		puts("Unable to init ryzenadj, check permission");
 		return -1;
@@ -116,6 +124,8 @@ int main(int argc, const char **argv)
 
 	if (reapply_every > 0) {
 		printf("Reapply configuration after %d ms delay\n", reapply_every);
+		puts("Press Ctrl+C to exit.");
+		puts("");
 	}
 	do {
 		_do_adjust(stapm_limit);
@@ -144,14 +154,13 @@ int main(int argc, const char **argv)
 		if(reapply_every == 0) break;
 		if (err != 0) {
 			error_count++;
-			wait_ms(reapply_every);
 		} else {
 			current_time(last_time, 15);
-			printf("\33[2K\rSettings applied at %s (error count: %d)", last_time, error_count);
+			printf("\33[2K\rSettings applied at %s (error count: %d)\r", last_time, error_count);
 			fflush(stdout);
-			wait_ms(reapply_every);
 		}
-	} while (!exiting);
+		wait_ms(reapply_every);
+	} while (true);
 
 	puts("Cleaning up.");
 	cleanup_ryzenadj(ry);
