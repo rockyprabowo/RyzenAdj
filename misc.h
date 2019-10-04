@@ -1,10 +1,16 @@
 #include <time.h>
+#include <stdbool.h>
+#include <stdio.h>
 #if defined WIN32
 #include <windows.h>
 #elif defined __linux__
+#include <stdint.h>
 #include <unistd.h>
 #endif
 
+#define TIME_CHUNK 500
+
 void configure_console();
-void wait_ms(unsigned int ms);
-void current_time(char* out, unsigned int outSize);
+void wait_ms(uint32_t ms);
+void wait_ms_on_loop(uint32_t ms, volatile bool *_exiting);
+void update_time(char* out, uint32_t outSize);

@@ -2,7 +2,7 @@
 /* Copyright (C) 2018-2019 Jiaxun Yang <jiaxun.yang@flygoat.com> */
 /* Ryzen NB SMU Service Request Tool */
 
-#include <string.h>
+// #include <string.h>
 #include <signal.h>
 #include "lib/ryzenadj.h"
 #include "misc.h"
@@ -10,23 +10,28 @@
 
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
+#define update_current_time() update_time(current_time, 9)
 
 #define _do_adjust(ARG) \
 do{ \
 	while(ARG != 0){    \
+		update_current_time(); \
+		if(exiting) break; \
 		if(!set_##ARG(ry, ARG)){   \
 			if (reapply_every > 0 && initial_info_printed) break; \
-			printf(STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
+			printf("[%s] " STRINGIFY(ARG) " set to %d (hex: %x)\n", current_time, ARG, ARG);    \
 			break;  \
 		} else {    \
-			printf("Failed to set" STRINGIFY(ARG) " \n");   \
+			printf("\033[2K\r"); \
+			printf("[%s] Failed to set" STRINGIFY(ARG) " \n", current_time);   \
 			err = -1; \
+			error_count++; \
 			break;  \
 		}   \
 	} \
 }while(0);
 
-ryzen_access* global_ryzen_access_ptr;
+volatile bool exiting = false;
 
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
@@ -39,17 +44,12 @@ void signal_handler(int signal) {
 		case SIGABRT:
 		case SIGINT:
 			puts("\nExit signal caught.");
-			cleanup_ryzenadj(*global_ryzen_access_ptr);
-			exit(0);
+			exiting = true;
 			break;
 		default:
 			puts("\nFIXME: Implement a proper signal handler.");
 			break;
 	}
-}
-
-void register_ryzen_access(ryzen_access* _ry) {
-	global_ryzen_access_ptr = _ry;
 }
 
 int main(int argc, const char **argv)
@@ -63,7 +63,7 @@ int main(int argc, const char **argv)
 	uint32_t max_gfxclk_freq = 0, min_gfxclk_freq = 0;
 	uint32_t reapply_every = 0, error_count = 0;
 	bool initial_info_printed = false;
-	char last_time[16] = "";
+	char current_time[10] = "";
 
 	struct argparse_option options[] = {
 		OPT_HELP(),
@@ -114,23 +114,36 @@ int main(int argc, const char **argv)
 
 	puts(argparse.description);
 	puts(argparse.epilog);
-
-	signal(SIGABRT, signal_handler);
-	signal(SIGINT, signal_handler);
+	puts("");
 
 	ry = init_ryzenadj();
-	register_ryzen_access(&ry);
+
 	if(!ry){
-		puts("Unable to init ryzenadj, check permission");
+		printf("Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
+			#if defined WIN32
+			"Administrator"
+			#elif defined __linux__
+			"root"
+			#endif
+		);
 		return -1;
 	}
 
 	if (reapply_every > 0) {
-		if (reapply_every < 100)
-			puts("WARNING: Delay below 100 ms is not recommended!");
-		printf("\nReapply configuration after %d ms of delay\n", reapply_every);
+		if (reapply_every < 1000) {
+			puts("WARNING: Delay set at less than 1000 ms is not recommended!");
+			puts("Rapid failure error messages are expected when the delay time is too low.");
+			puts("");
+			wait_ms(2000);
+		}
+		update_current_time();
+		printf("[%s] Reapply configuration after %d ms of delay", current_time, reapply_every);
 		puts("");
 	}
+
+	signal(SIGABRT, signal_handler);
+	signal(SIGINT, signal_handler);
+
 	do {
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
@@ -156,15 +169,16 @@ int main(int argc, const char **argv)
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
 		if(reapply_every == 0) break;
-		current_time(last_time, 15);
+		update_current_time();
 		printf("\033[2K\r");
-		printf("Settings applied at %s (error count: %d). Press Ctrl+C to exit.",
-			last_time,
-			err != 0 ? ++error_count : error_count
+		printf("[%s] Adjustment(s) applied (error count: %d). %s",
+			current_time,
+			error_count,
+			reapply_every > 0 ? "Press Ctrl+C to exit." : ""
 			);
 		fflush(stdout);
-		wait_ms(reapply_every);
-	} while (true);
+		wait_ms_on_loop(reapply_every, &exiting);
+	} while (!exiting);
 
 	puts("Cleaning up.");
 	cleanup_ryzenadj(ry);
