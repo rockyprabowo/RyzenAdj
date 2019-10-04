@@ -13,13 +13,17 @@
 
 #define _do_adjust(ARG) \
 do{ \
-	while(ARG != 0){    \
+	while(ARG != 0){ \
+		current_time(last_time, 15); \
 		if(!set_##ARG(ry, ARG)){   \
-			if (reapply_every > 0 && initial_info_printed) break; \
+			if (initial_info_printed) break; \
 			printf(STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
 			break;  \
 		} else {    \
-			printf("Failed to set" STRINGIFY(ARG) " \n");   \
+			printf("\033[2K\r"); \
+			printf("[%s] Failed to set " STRINGIFY(ARG) " \n", last_time);   \
+			fflush(stdout); \
+			error_count++; \
 			err = -1; \
 			break;  \
 		}   \
@@ -64,6 +68,8 @@ int main(int argc, const char **argv)
 	uint32_t reapply_every = 0, error_count = 0;
 	bool initial_info_printed = false;
 	char last_time[16] = "";
+	char loop_start_time[16] = "";
+	char loop_end_time[16] = "";
 
 	struct argparse_option options[] = {
 		OPT_HELP(),
@@ -111,27 +117,32 @@ int main(int argc, const char **argv)
 	}
 
 	configure_console();
+	current_time(loop_start_time, 15);
 
 	puts(argparse.description);
 	puts(argparse.epilog);
+	puts("");
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 
 	ry = init_ryzenadj();
-	register_ryzen_access(&ry);
 	if(!ry){
 		puts("Unable to init ryzenadj, check permission");
 		return -1;
 	}
 
+	register_ryzen_access(&ry);
+
 	if (reapply_every > 0) {
-		if (reapply_every < 100)
-			puts("WARNING: Delay below 100 ms is not recommended!");
-		printf("\nReapply configuration after %d ms of delay\n", reapply_every);
+		if (reapply_every < 500)
+			puts("WARNING: Delay below 500 ms is not recommended!");
+		printf("Reapply configuration after %d ms of delay\n", reapply_every);
 		puts("");
 	}
 	do {
+		if(!initial_info_printed)
+			printf("Program started at %s\n\nConfiguration(s):\n", loop_start_time);
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
 		_do_adjust(slow_limit);
@@ -154,21 +165,28 @@ int main(int argc, const char **argv)
 		_do_adjust(min_lclk);
 		_do_adjust(max_gfxclk_freq);
 		_do_adjust(min_gfxclk_freq);
+		if(!initial_info_printed)
+			printf("\nLogs:\n");
 		initial_info_printed = true;
-		if(reapply_every == 0) break;
-		current_time(last_time, 15);
-		printf("\033[2K\r");
-		printf("Settings applied at %s (error count: %d). Press Ctrl+C to exit.",
+		printf("%s", "\033[2K\r" );
+		printf("[%s] Configuration(s) %s (error(s): %d). %s%s",
 			last_time,
-			err != 0 ? ++error_count : error_count
+			err != 0 ? "are not applied" : "applied",
+			error_count,
+			reapply_every > 0 ? "Press Ctrl+C to exit." : "\n",
+			err != 0 ? "\n" : ""
 			);
 		fflush(stdout);
+		if(reapply_every == 0) break;
+		err = 0; // reset the error flags
 		wait_ms(reapply_every);
 	} while (true);
 
-	puts("Cleaning up.");
+	current_time(last_time, 15);
+	printf("[%s] Cleaning up.\n", last_time);
 	cleanup_ryzenadj(ry);
-	puts("Bye.");
+	current_time(last_time, 15);
+	printf("[%s] Everything is cleaned up. Bye!\n", last_time);
 
 	return err;
 }
