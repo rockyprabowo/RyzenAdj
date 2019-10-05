@@ -181,7 +181,6 @@ int main(int argc, const char **argv)
 		_do_adjust(max_gfxclk_freq);
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
-		if(reapply_every == 0) break;
 		update_current_time();
 		printf("\033[2K\r");
 		printf("[%s] Adjustment(s) applied (error count: %d). %s",
@@ -190,6 +189,7 @@ int main(int argc, const char **argv)
 			reapply_every > 0 ? "Press Ctrl+C to exit." : ""
 			);
 		fflush(stdout);
+		if(reapply_every == 0) break;
 		wait_ms_on_loop(reapply_every, &exiting);
 	} while (!exiting);
 
