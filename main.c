@@ -112,8 +112,7 @@ int main(int argc, const char **argv)
 
 	configure_console();
 
-	puts(argparse.description);
-	puts(argparse.epilog);
+	argparse_description(&argparse);
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);

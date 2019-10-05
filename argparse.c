@@ -426,3 +426,13 @@ argparse_help_cb(struct argparse *self, const struct argparse_option *option)
 	argparse_usage(self);
 	exit(0);
 }
+
+void
+argparse_description(struct argparse *self)
+{
+	if (self->description)
+		fprintf(stdout, "%s\n", self->description);
+
+	if (self->epilog)
+		fprintf(stdout, "%s\n", self->epilog);
+}
