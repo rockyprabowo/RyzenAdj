@@ -18,14 +18,16 @@ do{ \
 		update_current_time(); \
 		if(exiting) break; \
 		if(!set_##ARG(ry, ARG)){   \
-			if (reapply_every > 0 && initial_info_printed) break; \
+			if (initial_info_printed) break; \
 			printf("[%s] " STRINGIFY(ARG) " set to %d (hex: %x)\n", current_time, ARG, ARG);    \
+			fflush(stdout); \
 			break;  \
 		} else {    \
 			printf("\033[2K\r"); \
 			printf("[%s] Failed to set" STRINGIFY(ARG) " \n", current_time);   \
-			err = -1; \
+			fflush(stdout); \
 			error_count++; \
+			err = -1; \
 			break;  \
 		}   \
 	} \
@@ -63,6 +65,8 @@ int main(int argc, const char **argv)
 	uint32_t reapply_every = 0, error_count = 0;
 	bool initial_info_printed = false;
 	char current_time[10] = "";
+	char loop_start_time[10] = "";
+	char loop_end_time[10] = "";
 
 	struct argparse_option options[] = {
 		OPT_HELP(),
@@ -127,23 +131,33 @@ int main(int argc, const char **argv)
 		);
 		return -1;
 	}
-
+	update_current_time();
 	if (reapply_every > 0) {
+		if (reapply_every < 100) {
+			puts("ERROR: Delay value is lower than 250 ms.");
+			puts("This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.");
+			puts("");
+			return -1;
+		}
 		if (reapply_every < 1000) {
-			puts("WARNING: Delay set at less than 1000 ms is not recommended!");
+			puts("WARNING: Delay value lower than 1000 ms is not recommended!");
 			puts("Rapid failure error messages are expected when the delay time is too low.");
 			puts("");
 			wait_ms(2000);
 		}
-		update_current_time();
-		printf("[%s] Reapply configuration after %d ms of delay", current_time, reapply_every);
+		printf("[%s] Reapply configuration after %d ms of delay.", current_time, reapply_every);
 		puts("");
+	} else {
+		printf("[%s] Applying configuration(s).", current_time);
 	}
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
+	update_time(loop_start_time, 9);
 
 	do {
+		if(!initial_info_printed && reapply_every > 0)
+			printf("[%s] Loop started.\n", loop_start_time);
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
 		_do_adjust(slow_limit);
@@ -178,6 +192,11 @@ int main(int argc, const char **argv)
 		fflush(stdout);
 		wait_ms_on_loop(reapply_every, &exiting);
 	} while (!exiting);
+
+	update_time(loop_end_time, 9);
+	if(reapply_every > 0) {
+		printf("[%s] Loop ended.\n", loop_start_time);
+	}
 
 	update_current_time();
 	printf("[%s] Cleaning up.\n", current_time);
