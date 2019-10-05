@@ -43,7 +43,6 @@ void signal_handler(int signal) {
 	switch(signal) {
 		case SIGABRT:
 		case SIGINT:
-			puts("\nExit signal caught.");
 			exiting = true;
 			break;
 		default:
@@ -118,7 +117,7 @@ int main(int argc, const char **argv)
 
 	ry = init_ryzenadj();
 
-	if(!ry){
+	if(!ry) {
 		printf("Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
 			#if defined WIN32
 			"Administrator"
@@ -180,9 +179,11 @@ int main(int argc, const char **argv)
 		wait_ms_on_loop(reapply_every, &exiting);
 	} while (!exiting);
 
-	puts("Cleaning up.");
+	update_current_time();
+	printf("[%s] Cleaning up.\n", current_time);
 	cleanup_ryzenadj(ry);
-	puts("Bye.");
+	update_current_time();
+	printf("[%s] Clean up complete. Bye!\n", current_time);
 
 	return err;
 }

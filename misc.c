@@ -21,26 +21,27 @@ void _sleep(uint32_t ms) {
 #endif
 }
 
-inline void wait_ms(uint32_t ms) {
+void wait_ms(uint32_t ms) {
 	_sleep(ms);
 }
 
-inline void wait_ms_on_loop(uint32_t ms, volatile bool *_exiting)
+void wait_ms_on_loop(uint32_t ms, const volatile bool *_exiting)
 {
 	bool long_wait = ms > TIME_CHUNK;
 	uint32_t wait_chunk = long_wait ? ms / TIME_CHUNK : 0;
 	uint32_t wait_leftover = long_wait ? ms % TIME_CHUNK : ms;
 	uint32_t wait_time = long_wait ? TIME_CHUNK : ms;
+	char current_time[10];
 
-	for(int c = 0;c < wait_chunk;c++) {
-		// printf("%d\n%d\n%d\n", long_wait, wait_chunk, wait_leftover);
-		// printf("%d %d", c, wait_chunk);
+	for(uint32_t c = 0;c < wait_chunk;c++) {
 		_sleep(wait_time);
-		if(*_exiting) return;
+		if(*_exiting) {
+			update_time(current_time, 9);
+			printf("\n[%s] Exit signal caught.\n", current_time);
+			return;
+		}
 	}
-	// printf("%d\n", wait_leftover);
 	_sleep(wait_leftover);
-
 }
 
 void update_time(char* out, uint32_t outSize)

@@ -12,5 +12,5 @@
 
 void configure_console();
 void wait_ms(uint32_t ms);
-void wait_ms_on_loop(uint32_t ms, volatile bool *_exiting);
+void wait_ms_on_loop(uint32_t ms, const volatile bool *_exiting);
 void update_time(char* out, uint32_t outSize);
