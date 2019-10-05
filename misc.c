@@ -36,7 +36,7 @@ void wait_ms_on_loop(uint32_t ms, const volatile bool *_exiting)
 	for(uint32_t c = 0;c < wait_chunk;c++) {
 		_sleep(wait_time);
 		if(*_exiting) {
-			update_time(current_time, 9);
+			update_time(current_time, sizeof(current_time));
 			printf("\n[%s] Exit signal caught.\n", current_time);
 			return;
 		}

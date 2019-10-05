@@ -10,7 +10,7 @@
 
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
-#define update_current_time() update_time(current_time, 9)
+#define update_current_time() update_time(current_time, sizeof(current_time))
 
 #define _do_adjust(ARG) \
 do{ \
@@ -153,7 +153,7 @@ int main(int argc, const char **argv)
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
-	update_time(loop_start_time, 9);
+	update_time(loop_start_time, sizeof(loop_start_time));
 
 	do {
 		if(!initial_info_printed && reapply_every > 0)
@@ -193,7 +193,7 @@ int main(int argc, const char **argv)
 		wait_ms_on_loop(reapply_every, &exiting);
 	} while (!exiting);
 
-	update_time(loop_end_time, 9);
+	update_time(loop_end_time, sizeof(loop_end_time));
 	if(reapply_every > 0) {
 		printf("[%s] Loop ended.\n", loop_start_time);
 	}
