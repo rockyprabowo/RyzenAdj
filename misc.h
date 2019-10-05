@@ -1,10 +1,10 @@
-#include <time.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 #if defined WIN32
 #include <windows.h>
 #elif defined __linux__
-#include <stdint.h>
 #include <unistd.h>
 #endif
 
