@@ -39,13 +39,13 @@ void signal_handler(int signal) {
 		case SIGABRT:
 		case SIGINT:
 			puts("\nExit signal caught.");
+			cleanup_ryzenadj(*global_ryzen_access_ptr);
+			exit(0);
 			break;
 		default:
 			puts("\nFIXME: Implement a proper signal handler.");
 			break;
 	}
-	cleanup_ryzenadj(*global_ryzen_access_ptr);
-	exit(0);
 }
 
 void register_ryzen_access(ryzen_access* _ry) {
