@@ -155,7 +155,7 @@ int main(int argc, const char **argv)
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
 		if(reapply_every == 0) break;
-		current_time(last_time, 15);
+		current_time(last_time, sizeof(last_time));
 		printf("\033[2K\r");
 		printf("Settings applied at %s (error count: %d). Press Ctrl+C to exit.",
 			last_time,
