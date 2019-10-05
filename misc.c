@@ -36,8 +36,8 @@ void wait_ms_on_loop(uint32_t ms, const volatile bool *_exiting)
 	for(uint32_t c = 0;c < wait_chunk;c++) {
 		_sleep(wait_time);
 		if(*_exiting) {
-			update_time(current_time, sizeof(current_time));
-			printf("\n[%s] Exit signal caught.\n", current_time);
+			puts("");
+			__print(OUTPUT_INFO, "Exit signal caught.\n", current_time);
 			return;
 		}
 	}
@@ -53,6 +53,34 @@ void update_time(char* out, uint32_t outSize)
 #elif defined __linux__
 	localtime_r(&rawtime,&info);
 #endif
-
 	strftime(out, outSize, "%X", &info);
+}
+
+void __print(uint8_t verbosity, char *format, ...)
+{
+	char current_time[10];
+    va_list args;
+
+    va_start(args, format);
+	update_time(current_time,sizeof(current_time));
+
+	if(g_verbosity < verbosity) return;
+	if(g_verbosity >= OUTPUT_VERBOSE) fprintf(stdout, "[%s] ", current_time);
+
+	switch (verbosity)
+	{
+	case OUTPUT_VERBOSE:
+	case OUTPUT_WARNING:
+	case OUTPUT_INFO:
+	default:
+		vfprintf(stdout, format, args);
+        break;
+	case OUTPUT_ERROR:
+		vfprintf(stderr, format, args);
+        break;
+	case OUTPUT_QUIET:
+        break;
+	}
+	fflush(stdout);
+    va_end(args);
 }

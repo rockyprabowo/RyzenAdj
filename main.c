@@ -2,7 +2,6 @@
 /* Copyright (C) 2018-2019 Jiaxun Yang <jiaxun.yang@flygoat.com> */
 /* Ryzen NB SMU Service Request Tool */
 
-// #include <string.h>
 #include <signal.h>
 #include "lib/ryzenadj.h"
 #include "misc.h"
@@ -10,21 +9,19 @@
 
 #define STRINGIFY2(X) #X
 #define STRINGIFY(X) STRINGIFY2(X)
-#define update_current_time() update_time(current_time, sizeof(current_time))
 
 #define _do_adjust(ARG) \
 do{ \
 	while(ARG != 0){    \
-		update_current_time(); \
-		if(exiting) break; \
+		if(g_exiting) break; \
 		if(!set_##ARG(ry, ARG)){   \
 			if (initial_info_printed) break; \
-			printf("[%s] " STRINGIFY(ARG) " set to %d (hex: %x)\n", current_time, ARG, ARG);    \
+			__print(OUTPUT_INFO, "" STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
 			fflush(stdout); \
 			break;  \
 		} else {    \
 			printf("\033[2K\r"); \
-			printf("[%s] Failed to set" STRINGIFY(ARG) " \n", current_time);   \
+			__print(OUTPUT_ERROR, "Failed to set" STRINGIFY(ARG) " \n");   \
 			fflush(stdout); \
 			error_count++; \
 			err = -1; \
@@ -33,7 +30,8 @@ do{ \
 	} \
 }while(0);
 
-volatile bool exiting = false;
+volatile bool g_exiting = false;
+uint8_t g_verbosity = OUTPUT_INFO;
 
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
@@ -45,10 +43,10 @@ void signal_handler(int signal) {
 	switch(signal) {
 		case SIGABRT:
 		case SIGINT:
-			exiting = true;
+			g_exiting = true;
 			break;
 		default:
-			puts("\nFIXME: Implement a proper signal handler.");
+			__print(OUTPUT_WARNING, "Unhandled signal recieved");
 			break;
 	}
 }
@@ -64,9 +62,6 @@ int main(int argc, const char **argv)
 	uint32_t max_gfxclk_freq = 0, min_gfxclk_freq = 0;
 	uint32_t reapply_every = 0, error_count = 0;
 	bool initial_info_printed = false;
-	char current_time[10] = "";
-	char loop_start_time[10] = "";
-	char loop_end_time[10] = "";
 
 	struct argparse_option options[] = {
 		OPT_HELP(),
@@ -91,11 +86,12 @@ int main(int argc, const char **argv)
 		OPT_U32('r', "min-fclk-frequency", &min_fclk_freq, "Minimum Transmission (CPU-GPU) Frequency (MHz)"),
 		OPT_U32('s', "max-vcn", &max_vcn, "Maximum Video Core Next (VCE - Video Coding Engine) (Value)"),
 		OPT_U32('t', "min-vcn", &min_vcn, "Minimum Video Core Next (VCE - Video Coding Engine) (Value)"),
-		OPT_U32('u', "max-lclk", &max_lclk, "Maximum Data Launch Clock (Value)"),
-		OPT_U32('v', "min-lclk", &min_lclk, "Minimum Data Launch Clock (Value)"),
-		OPT_U32('w', "max-gfxclk", &max_gfxclk_freq, "Maximum GFX Clock (Value)"),
-		OPT_U32('x', "min-gfxclk", &min_gfxclk_freq, "Minimum GFX Clock (Value)"),
-		OPT_U32('z', "reapply-every", &reapply_every, "Reapply configuration with delay (in milisecond)"),
+		OPT_U32('u', "reapply-every", &reapply_every, "Reapply configuration with delay (in milisecond)"),
+		OPT_U32('v', "verbosity", &g_verbosity, "Show more information (W.I.P.)"),
+		OPT_U32('w', "max-lclk", &max_lclk, "Maximum Data Launch Clock (Value)"),
+		OPT_U32('x', "min-lclk", &min_lclk, "Minimum Data Launch Clock (Value)"),
+		OPT_U32('y', "max-gfxclk", &max_gfxclk_freq, "Maximum GFX Clock (Value)"),
+		OPT_U32('z', "min-gfxclk", &min_gfxclk_freq, "Minimum GFX Clock (Value)"),
 		OPT_GROUP("P-State Functions"),
 		OPT_END(),
 	};
@@ -108,7 +104,7 @@ int main(int argc, const char **argv)
 	argparse_parse(&argparse, argc, argv);
 
 	if (argc == 1) {
-		printf("No parameter was set.\n");
+		__print(OUTPUT_ERROR, "No parameter was set.\n");
 		argparse_usage(&argparse);
 		exit(-1);
 	}
@@ -122,7 +118,7 @@ int main(int argc, const char **argv)
 	ry = init_ryzenadj();
 
 	if(!ry) {
-		printf("Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
+		__print(OUTPUT_ERROR, "Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
 			#if defined WIN32
 			"Administrator"
 			#elif defined __linux__
@@ -131,33 +127,30 @@ int main(int argc, const char **argv)
 		);
 		return -1;
 	}
-	update_current_time();
 	if (reapply_every > 0) {
-		if (reapply_every < 100) {
-			puts("ERROR: Delay value is lower than 250 ms.");
-			puts("This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.");
-			puts("");
+		if (reapply_every < 250) {
+			__print(OUTPUT_ERROR, "ERROR: Delay value is lower than 250 ms.\n");
+			__print(OUTPUT_ERROR, "This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.\n");
 			return -1;
 		}
 		if (reapply_every < 1000) {
-			puts("WARNING: Delay value lower than 1000 ms is not recommended!");
-			puts("Rapid failure error messages are expected when the delay time is too low.");
-			puts("");
+			__print(OUTPUT_WARNING, "WARNING: Delay value lower than 1000 ms is not recommended!\n");
+			__print(OUTPUT_WARNING, "Rapid failure error messages are expected when the delay time is too low.\n");
+			__print(OUTPUT_WARNING, "\n");
+
 			wait_ms(2000);
 		}
-		printf("[%s] Reapply configuration after %d ms of delay.", current_time, reapply_every);
-		puts("");
+		__print(OUTPUT_VERBOSE, "Reapply configuration after %d ms of delay.\n", reapply_every);
 	} else {
-		printf("[%s] Applying configuration(s).", current_time);
+		__print(OUTPUT_VERBOSE, "Applying configuration(s).\n");
 	}
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
-	update_time(loop_start_time, sizeof(loop_start_time));
 
 	do {
-		if(!initial_info_printed && reapply_every > 0)
-			printf("[%s] Loop started.\n", loop_start_time);
+		if(!initial_info_printed)
+			__print(OUTPUT_VERBOSE, "Loop started.\n");
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
 		_do_adjust(slow_limit);
@@ -181,28 +174,23 @@ int main(int argc, const char **argv)
 		_do_adjust(max_gfxclk_freq);
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
-		update_current_time();
 		printf("\033[2K\r");
-		printf("[%s] Adjustment(s) applied (error count: %d). %s",
-			current_time,
+		__print(OUTPUT_INFO, "Adjustment(s) applied (error count: %d). %s",
 			error_count,
-			reapply_every > 0 ? "Press Ctrl+C to exit." : ""
+			reapply_every > 0 ? "Press Ctrl+C to exit." : "\n"
 			);
 		fflush(stdout);
 		if(reapply_every == 0) break;
-		wait_ms_on_loop(reapply_every, &exiting);
-	} while (!exiting);
+		wait_ms_on_loop(reapply_every, &g_exiting);
+	} while (!g_exiting);
 
-	update_time(loop_end_time, sizeof(loop_end_time));
 	if(reapply_every > 0) {
-		printf("[%s] Loop ended.\n", loop_start_time);
+		puts("");
+		__print(OUTPUT_VERBOSE,"Loop ended.\n");
 	}
-
-	update_current_time();
-	printf("[%s] Cleaning up.\n", current_time);
+	__print(OUTPUT_VERBOSE, "Cleaning up.\n");
 	cleanup_ryzenadj(ry);
-	update_current_time();
-	printf("[%s] Clean up complete. Bye!\n", current_time);
-
+	__print(OUTPUT_VERBOSE, "Clean up complete.\n");
+	__print(OUTPUT_INFO, "Bye!\n");
 	return err;
 }
