@@ -88,7 +88,7 @@ int main(int argc, const char **argv)
 		OPT_U32('s', "max-vcn", &max_vcn, "Maximum Video Core Next (VCE - Video Coding Engine) (Value)"),
 		OPT_U32('t', "min-vcn", &min_vcn, "Minimum Video Core Next (VCE - Video Coding Engine) (Value)"),
 		OPT_U32('u', "reapply-every", &reapply_every, "Reapply configuration with delay (in milisecond)"),
-		OPT_U32('v', "verbosity", &g_verbosity, "Show more information (W.I.P.)"),
+		OPT_U32('v', "verbosity", &g_verbosity, "Output verbosity (0: minimal, 1: erorrs, 2: warnings, 3: default, 4: verbose) "),
 		OPT_U32('w', "max-lclk", &max_lclk, "Maximum Data Launch Clock (Value)"),
 		OPT_U32('x', "min-lclk", &min_lclk, "Minimum Data Launch Clock (Value)"),
 		OPT_U32('y', "max-gfxclk", &max_gfxclk_freq, "Maximum GFX Clock (Value)"),
@@ -126,12 +126,15 @@ int main(int argc, const char **argv)
 			"root"
 			#endif
 		);
+		fflush(stdout);
 		return -1;
 	}
 	if (reapply_every > 0) {
 		if (reapply_every < 250) {
 			__print(ERR, "ERROR: Delay value is lower than 250 ms.\n");
 			__print(ERR, "This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.\n");
+			__print(ERR, "\n");
+			__print(ERR, "Exiting.\n");
 			return -1;
 		}
 		if (reapply_every < 1000) {
