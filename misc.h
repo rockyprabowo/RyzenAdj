@@ -5,8 +5,10 @@
 #include <string.h>
 #if defined WIN32
 #include <windows.h>
+#define NULL_DEVICE "nul"
 #elif defined __linux__
 #include <unistd.h>
+#define NULL_DEVICE "/dev/null"
 #endif
 
 #define VERB 4

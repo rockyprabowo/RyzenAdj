@@ -8,6 +8,8 @@ void configure_console() {
 	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 	SetConsoleMode(hOut, dwMode);
 #endif
+	// Redirect stderr to null device aka black hole.
+	if (g_verbosity == NOOP) freopen(NULL_DEVICE, "w", stderr);
 }
 
 void _sleep(uint32_t ms) {
@@ -65,7 +67,8 @@ void __print(uint8_t verbosity, char *format, ...)
 	update_time(current_time, sizeof(current_time));
 
 	if(g_verbosity < verbosity) return;
-	if(g_verbosity == VERB) fprintf(stdout, "[%s] ", current_time);
+	if(g_verbosity >= VERB) fprintf(stdout, "[%s] ", current_time);
+	fflush(stdout);
 
 	switch (verbosity)
 	{
