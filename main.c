@@ -16,12 +16,12 @@ do{ \
 		if(g_exiting) break; \
 		if(!set_##ARG(ry, ARG)){   \
 			if (initial_info_printed) break; \
-			__print(OUTPUT_INFO, "" STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
+			__print(INFO, "" STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
 			fflush(stdout); \
 			break;  \
 		} else {    \
 			printf("\033[2K\r"); \
-			__print(OUTPUT_ERROR, "Failed to set" STRINGIFY(ARG) " \n");   \
+			__print(ERR, "Failed to set" STRINGIFY(ARG) " \n");   \
 			fflush(stdout); \
 			error_count++; \
 			err = -1; \
@@ -31,7 +31,7 @@ do{ \
 }while(0);
 
 volatile bool g_exiting = false;
-uint8_t g_verbosity = OUTPUT_INFO;
+uint8_t g_verbosity = INFO;
 
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
@@ -42,11 +42,12 @@ static const char *const usage[] = {
 void signal_handler(int signal) {
 	switch(signal) {
 		case SIGABRT:
+		case SIGTERM:
 		case SIGINT:
 			g_exiting = true;
 			break;
 		default:
-			__print(OUTPUT_WARNING, "Unhandled signal recieved");
+			__print(WARN, "Unhandled signal recieved: %d", signal);
 			break;
 	}
 }
@@ -104,7 +105,7 @@ int main(int argc, const char **argv)
 	argparse_parse(&argparse, argc, argv);
 
 	if (argc == 1) {
-		__print(OUTPUT_ERROR, "No parameter was set.\n");
+		__print(ERR, "No parameter was set.\n");
 		argparse_usage(&argparse);
 		exit(-1);
 	}
@@ -118,7 +119,7 @@ int main(int argc, const char **argv)
 	ry = init_ryzenadj();
 
 	if(!ry) {
-		__print(OUTPUT_ERROR, "Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
+		__print(ERR, "Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
 			#if defined WIN32
 			"Administrator"
 			#elif defined __linux__
@@ -129,20 +130,19 @@ int main(int argc, const char **argv)
 	}
 	if (reapply_every > 0) {
 		if (reapply_every < 250) {
-			__print(OUTPUT_ERROR, "ERROR: Delay value is lower than 250 ms.\n");
-			__print(OUTPUT_ERROR, "This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.\n");
+			__print(ERR, "ERROR: Delay value is lower than 250 ms.\n");
+			__print(ERR, "This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.\n");
 			return -1;
 		}
 		if (reapply_every < 1000) {
-			__print(OUTPUT_WARNING, "WARNING: Delay value lower than 1000 ms is not recommended!\n");
-			__print(OUTPUT_WARNING, "Rapid failure error messages are expected when the delay time is too low.\n");
-			__print(OUTPUT_WARNING, "\n");
-
+			__print(WARN, "WARNING: Delay value lower than 1000 ms is not recommended!\n");
+			__print(WARN, "Rapid failure error messages are expected when the delay time is too low.\n");
+			__print(WARN, "\n");
 			wait_ms(2000);
 		}
-		__print(OUTPUT_VERBOSE, "Reapply configuration after %d ms of delay.\n", reapply_every);
+		__print(VERB, "Reapply configuration after %d ms of delay.\n", reapply_every);
 	} else {
-		__print(OUTPUT_VERBOSE, "Applying configuration(s).\n");
+		__print(VERB, "Applying configuration(s).\n");
 	}
 
 	signal(SIGABRT, signal_handler);
@@ -150,7 +150,7 @@ int main(int argc, const char **argv)
 
 	do {
 		if(!initial_info_printed)
-			__print(OUTPUT_VERBOSE, "Loop started.\n");
+			__print(VERB, "Loop started.\n");
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
 		_do_adjust(slow_limit);
@@ -175,7 +175,7 @@ int main(int argc, const char **argv)
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
 		printf("\033[2K\r");
-		__print(OUTPUT_INFO, "Adjustment(s) applied (error count: %d). %s",
+		__print(INFO, "Adjustment(s) applied (error count: %d). %s",
 			error_count,
 			reapply_every > 0 ? "Press Ctrl+C to exit." : "\n"
 			);
@@ -186,11 +186,11 @@ int main(int argc, const char **argv)
 
 	if(reapply_every > 0) {
 		puts("");
-		__print(OUTPUT_VERBOSE,"Loop ended.\n");
+		__print(VERB,"Loop ended.\n");
 	}
-	__print(OUTPUT_VERBOSE, "Cleaning up.\n");
+	__print(VERB, "Cleaning up.\n");
 	cleanup_ryzenadj(ry);
-	__print(OUTPUT_VERBOSE, "Clean up complete.\n");
-	__print(OUTPUT_INFO, "Bye!\n");
+	__print(VERB, "Clean up complete.\n");
+	__print(INFO, "Bye!\n");
 	return err;
 }

@@ -9,11 +9,11 @@
 #include <unistd.h>
 #endif
 
-#define OUTPUT_VERBOSE 4
-#define OUTPUT_INFO 3
-#define OUTPUT_WARNING 2
-#define OUTPUT_ERROR 1
-#define OUTPUT_QUIET 0
+#define VERB 4
+#define INFO 3
+#define WARN 2
+#define ERR 1
+#define NOOP 0
 #define TIME_CHUNK 500
 
 extern uint8_t g_verbosity;

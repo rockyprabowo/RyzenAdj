@@ -37,7 +37,7 @@ void wait_ms_on_loop(uint32_t ms, const volatile bool *_exiting)
 		_sleep(wait_time);
 		if(*_exiting) {
 			puts("");
-			__print(OUTPUT_INFO, "Exit signal caught.\n", current_time);
+			__print(INFO, "Exit signal caught.\n", current_time);
 			return;
 		}
 	}
@@ -62,23 +62,23 @@ void __print(uint8_t verbosity, char *format, ...)
     va_list args;
 
     va_start(args, format);
-	update_time(current_time,sizeof(current_time));
+	update_time(current_time, sizeof(current_time));
 
 	if(g_verbosity < verbosity) return;
-	if(g_verbosity >= OUTPUT_VERBOSE) fprintf(stdout, "[%s] ", current_time);
+	if(g_verbosity == VERB) fprintf(stdout, "[%s] ", current_time);
 
 	switch (verbosity)
 	{
-	case OUTPUT_VERBOSE:
-	case OUTPUT_WARNING:
-	case OUTPUT_INFO:
+	case VERB:
+	case WARN:
+	case INFO:
 	default:
 		vfprintf(stdout, format, args);
         break;
-	case OUTPUT_ERROR:
+	case ERR:
 		vfprintf(stderr, format, args);
         break;
-	case OUTPUT_QUIET:
+	case NOOP:
         break;
 	}
 	fflush(stdout);
