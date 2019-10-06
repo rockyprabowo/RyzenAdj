@@ -2,7 +2,6 @@
 /* Copyright (C) 2018-2019 Jiaxun Yang <jiaxun.yang@flygoat.com> */
 /* Ryzen NB SMU Service Request Tool */
 
-#include <string.h>
 #include <signal.h>
 #include "lib/ryzenadj.h"
 #include "misc.h"
@@ -14,19 +13,25 @@
 #define _do_adjust(ARG) \
 do{ \
 	while(ARG != 0){    \
+		if(g_exiting) break; \
 		if(!set_##ARG(ry, ARG)){   \
-			if (reapply_every > 0 && initial_info_printed) break; \
-			printf(STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
+			if (initial_info_printed) break; \
+			__print(INFO, "" STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
+			fflush(stdout); \
 			break;  \
 		} else {    \
-			printf("Failed to set" STRINGIFY(ARG) " \n");   \
+			printf("\033[2K\r"); \
+			__print(ERR, "Failed to set" STRINGIFY(ARG) " \n");   \
+			fflush(stdout); \
+			error_count++; \
 			err = -1; \
 			break;  \
 		}   \
 	} \
 }while(0);
 
-ryzen_access* global_ryzen_access_ptr;
+volatile bool g_exiting = false;
+uint8_t g_verbosity = INFO;
 
 static const char *const usage[] = {
 	"ryzenadj [options] [[--] args]",
@@ -37,19 +42,14 @@ static const char *const usage[] = {
 void signal_handler(int signal) {
 	switch(signal) {
 		case SIGABRT:
+		case SIGTERM:
 		case SIGINT:
-			puts("\nExit signal caught.");
-			cleanup_ryzenadj(*global_ryzen_access_ptr);
-			exit(0);
+			g_exiting = true;
 			break;
 		default:
-			puts("\nFIXME: Implement a proper signal handler.");
+			__print(WARN, "Unhandled signal recieved: %d", signal);
 			break;
 	}
-}
-
-void register_ryzen_access(ryzen_access* _ry) {
-	global_ryzen_access_ptr = _ry;
 }
 
 int main(int argc, const char **argv)
@@ -63,7 +63,6 @@ int main(int argc, const char **argv)
 	uint32_t max_gfxclk_freq = 0, min_gfxclk_freq = 0;
 	uint32_t reapply_every = 0, error_count = 0;
 	bool initial_info_printed = false;
-	char last_time[16] = "";
 
 	struct argparse_option options[] = {
 		OPT_HELP(),
@@ -88,11 +87,12 @@ int main(int argc, const char **argv)
 		OPT_U32('r', "min-fclk-frequency", &min_fclk_freq, "Minimum Transmission (CPU-GPU) Frequency (MHz)"),
 		OPT_U32('s', "max-vcn", &max_vcn, "Maximum Video Core Next (VCE - Video Coding Engine) (Value)"),
 		OPT_U32('t', "min-vcn", &min_vcn, "Minimum Video Core Next (VCE - Video Coding Engine) (Value)"),
-		OPT_U32('u', "max-lclk", &max_lclk, "Maximum Data Launch Clock (Value)"),
-		OPT_U32('v', "min-lclk", &min_lclk, "Minimum Data Launch Clock (Value)"),
-		OPT_U32('w', "max-gfxclk", &max_gfxclk_freq, "Maximum GFX Clock (Value)"),
-		OPT_U32('x', "min-gfxclk", &min_gfxclk_freq, "Minimum GFX Clock (Value)"),
-		OPT_U32('z', "reapply-every", &reapply_every, "Reapply configuration with delay (in milisecond)"),
+		OPT_U32('u', "reapply-every", &reapply_every, "Reapply configuration with delay (in milisecond)"),
+		OPT_U32('v', "verbosity", &g_verbosity, "Output verbosity (0: minimal, 1: erorrs, 2: warnings, 3: default, 4: verbose) "),
+		OPT_U32('w', "max-lclk", &max_lclk, "Maximum Data Launch Clock (Value)"),
+		OPT_U32('x', "min-lclk", &min_lclk, "Minimum Data Launch Clock (Value)"),
+		OPT_U32('y', "max-gfxclk", &max_gfxclk_freq, "Maximum GFX Clock (Value)"),
+		OPT_U32('z', "min-gfxclk", &min_gfxclk_freq, "Minimum GFX Clock (Value)"),
 		OPT_GROUP("P-State Functions"),
 		OPT_END(),
 	};
@@ -105,7 +105,7 @@ int main(int argc, const char **argv)
 	argparse_parse(&argparse, argc, argv);
 
 	if (argc == 1) {
-		printf("No parameter was set.\n");
+		__print(ERR, "No parameter was set.\n");
 		argparse_usage(&argparse);
 		exit(-1);
 	}
@@ -118,19 +118,43 @@ int main(int argc, const char **argv)
 	signal(SIGINT, signal_handler);
 
 	ry = init_ryzenadj();
-	register_ryzen_access(&ry);
-	if(!ry){
-		puts("Unable to init ryzenadj, check permission");
+
+	if(!ry) {
+		__print(ERR, "Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
+			#if defined WIN32
+			"Administrator"
+			#elif defined __linux__
+			"root"
+			#endif
+		);
+		fflush(stdout);
 		return -1;
 	}
-
 	if (reapply_every > 0) {
-		if (reapply_every < 100)
-			puts("WARNING: Delay below 100 ms is not recommended!");
-		printf("\nReapply configuration after %d ms of delay\n", reapply_every);
-		puts("");
+		if (reapply_every < 250) {
+			__print(ERR, "ERROR: Delay value is lower than 250 ms.\n");
+			__print(ERR, "This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.\n");
+			__print(ERR, "\n");
+			__print(ERR, "Exiting.\n");
+			return -1;
+		}
+		if (reapply_every < 1000) {
+			__print(WARN, "WARNING: Delay value lower than 1000 ms is not recommended!\n");
+			__print(WARN, "Rapid failure error messages are expected when the delay time is too low.\n");
+			__print(WARN, "\n");
+			wait_ms(2000);
+		}
+		__print(VERB, "Reapply configuration after %d ms of delay.\n", reapply_every);
+	} else {
+		__print(VERB, "Applying configuration(s).\n");
 	}
+
+	signal(SIGABRT, signal_handler);
+	signal(SIGINT, signal_handler);
+
 	do {
+		if(!initial_info_printed)
+			__print(VERB, "Loop started.\n");
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
 		_do_adjust(slow_limit);
@@ -154,20 +178,23 @@ int main(int argc, const char **argv)
 		_do_adjust(max_gfxclk_freq);
 		_do_adjust(min_gfxclk_freq);
 		initial_info_printed = true;
-		if(reapply_every == 0) break;
-		current_time(last_time, sizeof(last_time));
 		printf("\033[2K\r");
-		printf("Settings applied at %s (error count: %d). Press Ctrl+C to exit.",
-			last_time,
-			err != 0 ? ++error_count : error_count
+		__print(INFO, "Adjustment(s) applied (error count: %d). %s",
+			error_count,
+			reapply_every > 0 ? "Press Ctrl+C to exit." : "\n"
 			);
 		fflush(stdout);
-		wait_ms(reapply_every);
-	} while (true);
+		if(reapply_every == 0) break;
+		wait_ms_on_loop(reapply_every, &g_exiting);
+	} while (!g_exiting);
 
-	puts("Cleaning up.");
+	if(reapply_every > 0) {
+		puts("");
+		__print(VERB,"Loop ended.\n");
+	}
+	__print(VERB, "Cleaning up.\n");
 	cleanup_ryzenadj(ry);
-	puts("Bye.");
-
+	__print(VERB, "Clean up complete.\n");
+	__print(INFO, "Bye!\n");
 	return err;
 }
