@@ -24,13 +24,14 @@ do{ \
 			__print(ERR, "Failed to set" STRINGIFY(ARG) " \n");   \
 			fflush(stdout); \
 			error_count++; \
-			err = -1; \
+			g_err = -1; \
 			break;  \
 		}   \
 	} \
 }while(0);
 
 volatile bool g_exiting = false;
+volatile uint8_t g_err = 0;
 uint8_t g_verbosity = INFO;
 
 static const char *const usage[] = {
@@ -38,6 +39,12 @@ static const char *const usage[] = {
 	"ryzenadj [options]",
 	NULL,
 };
+
+void done() {
+	char current_time[10];
+	update_time(current_time, sizeof(current_time));
+	printf("[%s] ryzenadj exited %s.\n", current_time, g_err != 0 ? "with failure(s)" : "successfully");
+}
 
 void signal_handler(int signal) {
 	switch(signal) {
@@ -55,8 +62,6 @@ void signal_handler(int signal) {
 int main(int argc, const char **argv)
 {
 	ryzen_access ry;
-	int err = 0;
-
 	uint32_t info = 0, stapm_limit = 0, fast_limit = 0, slow_limit = 0, slow_time = 0, stapm_time = 0, tctl_temp = 0;
 	uint32_t vrm_current = 0, vrmsoc_current = 0, vrmmax_current = 0, vrmsocmax_current = 0, psi0_current = 0, psi0soc_current = 0;
 	uint32_t max_socclk_freq = 0, min_socclk_freq = 0, max_fclk_freq = 0, min_fclk_freq = 0, max_vcn = 0, min_vcn = 0, max_lclk = 0, min_lclk = 0;
@@ -114,6 +119,7 @@ int main(int argc, const char **argv)
 
 	argparse_description(&argparse);
 
+	atexit(done);
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 
@@ -128,7 +134,8 @@ int main(int argc, const char **argv)
 			#endif
 		);
 		fflush(stdout);
-		return -1;
+		g_err = -1;
+		return g_err;
 	}
 	if (reapply_every > 0) {
 		if (reapply_every < 250) {
@@ -136,7 +143,8 @@ int main(int argc, const char **argv)
 			__print(ERR, "This is useless and doesn't yield anything other than wasting the CPU cycle. Aborting.\n");
 			__print(ERR, "\n");
 			__print(ERR, "Exiting.\n");
-			return -1;
+			g_err = -1;
+			return g_err;
 		}
 		if (reapply_every < 1000) {
 			__print(WARN, "WARNING: Delay value lower than 1000 ms is not recommended!\n");
@@ -147,13 +155,14 @@ int main(int argc, const char **argv)
 		__print(VERB, "Reapply configuration after %d ms of delay.\n", reapply_every);
 	} else {
 		__print(VERB, "Applying configuration(s).\n");
+		g_exiting = true;
 	}
 
 	signal(SIGABRT, signal_handler);
 	signal(SIGINT, signal_handler);
 
 	do {
-		if(!initial_info_printed)
+		if(!initial_info_printed && g_exiting)
 			__print(VERB, "Loop started.\n");
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
@@ -189,12 +198,10 @@ int main(int argc, const char **argv)
 	} while (!g_exiting);
 
 	if(reapply_every > 0) {
-		puts("");
 		__print(VERB,"Loop ended.\n");
 	}
 	__print(VERB, "Cleaning up.\n");
 	cleanup_ryzenadj(ry);
 	__print(VERB, "Clean up complete.\n");
-	__print(INFO, "Bye!\n");
-	return err;
+	return g_err;
 }

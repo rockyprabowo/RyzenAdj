@@ -33,7 +33,7 @@ EXP ryzen_access CALL init_ryzenadj(){
 
 	smu_service_req(ry->mp1_smu, 0x3, &args);
 	if(args.arg0 < 0x5){
-		__print(ERR, "Not a Ryzen NB SMU, BIOS Interface Ver: 0x%x",args.arg0);
+		__print(ERR, "Not a Ryzen NB SMU, BIOS Interface Ver: 0x%x\n",args.arg0);
 		goto out_err;
 	}
 

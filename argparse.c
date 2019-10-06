@@ -434,5 +434,5 @@ argparse_description(struct argparse *self)
 		fprintf(stdout, "%s\n", self->description);
 
 	if (self->epilog)
-		fprintf(stdout, "%s\n", self->epilog);
+		fprintf(stdout, "%s\n\n", self->epilog);
 }
