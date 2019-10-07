@@ -11,13 +11,13 @@ EXP ryzen_access CALL init_ryzenadj(){
 	if (ry == NULL) return NULL;
 	ry->pci_obj = init_pci_obj();
 	if(!ry->pci_obj){
-		__print(ERR, "Unable to get PCI Obj\n");
+		fprintf(stderr, "Unable to get PCI Obj\n");
 		return NULL;
 	}
 
 	ry->nb = get_nb(ry->pci_obj);
 	if(!ry->nb){
-		__print(ERR, "Unable to get NB Obj\n");
+		fprintf(stderr, "Unable to get NB Obj\n");
 		goto out_free_pci_obj;
 	}
 
@@ -33,7 +33,7 @@ EXP ryzen_access CALL init_ryzenadj(){
 
 	smu_service_req(ry->mp1_smu, 0x3, &args);
 	if(args.arg0 < 0x5){
-		__print(ERR, "Not a Ryzen NB SMU, BIOS Interface Ver: 0x%x\n",args.arg0);
+		fprintf(stderr, "Not a Ryzen NB SMU, BIOS Interface Ver: 0x%x\n",args.arg0);
 		goto out_err;
 	}
 

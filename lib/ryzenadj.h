@@ -8,7 +8,6 @@
 extern "C" {
 #endif
 #include  "nb_smu_ops.h"
-#include  "../misc.h"
 
 #ifdef _WIN32
 #define EXP __declspec(dllexport)
