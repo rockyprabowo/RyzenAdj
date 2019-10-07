@@ -13,8 +13,8 @@
 #define _do_adjust(ARG) \
 do{ \
 	while(ARG != 0){    \
-		if(g_exiting) break; \
-		if(!set_##ARG(ry, ARG)){   \
+		if (g_exiting) break; \
+		if (!set_##ARG(ry, ARG)){   \
 			if (initial_info_printed) break; \
 			__print(INFO, "" STRINGIFY(ARG) " set to %d (hex: %x)\n", ARG, ARG);    \
 			fflush(stdout); \
@@ -59,8 +59,7 @@ void signal_handler(int signal) {
 	}
 }
 
-int main(int argc, const char **argv)
-{
+int main(int argc, const char **argv) {
 	ryzen_access ry;
 	uint32_t info = 0, stapm_limit = 0, fast_limit = 0, slow_limit = 0, slow_time = 0, stapm_time = 0, tctl_temp = 0;
 	uint32_t vrm_current = 0, vrmsoc_current = 0, vrmmax_current = 0, vrmsocmax_current = 0, psi0_current = 0, psi0soc_current = 0;
@@ -125,7 +124,7 @@ int main(int argc, const char **argv)
 
 	ry = init_ryzenadj();
 
-	if(!ry) {
+	if (!ry) {
 		__print(ERR, "Unable to initialize the access to SMU. Please run RyzenAdj with %s permission.\n",
 			#if defined WIN32
 			"Administrator"
@@ -162,7 +161,7 @@ int main(int argc, const char **argv)
 	signal(SIGINT, signal_handler);
 
 	do {
-		if(!initial_info_printed && g_exiting)
+		if (!initial_info_printed && g_exiting)
 			__print(VERB, "Loop started.\n");
 		_do_adjust(stapm_limit);
 		_do_adjust(fast_limit);
@@ -193,11 +192,11 @@ int main(int argc, const char **argv)
 			reapply_every > 0 ? "Press Ctrl+C to exit." : "\n"
 			);
 		fflush(stdout);
-		if(reapply_every == 0) break;
+		if (reapply_every == 0) break;
 		wait_ms_on_loop(reapply_every, &g_exiting);
 	} while (!g_exiting);
 
-	if(reapply_every > 0) {
+	if (reapply_every > 0) {
 		__print(VERB,"Loop ended.\n");
 	}
 	__print(VERB, "Cleaning up.\n");
